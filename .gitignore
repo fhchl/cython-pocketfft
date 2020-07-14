@@ -1,0 +1,6 @@
+*__pycache__
+src/pocketfft.cpp
+src/pocketfft.html
+build
+*.egg-info
+*.so

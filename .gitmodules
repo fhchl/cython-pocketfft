@@ -1,0 +1,4 @@
+[submodule "include/pocketfft"]
+	path = include/pocketfft
+	url = https://gitlab.mpcdf.mpg.de/mtr/pocketfft.git
+	branch = cpp
