@@ -25,7 +25,21 @@ def test_pocket_ifft(size):
     npt.assert_allclose(np.asarray(pocketfft.ifft(x)), np.fft.ifft(x))
 
 
-def test_unitary():
-    for size in [2**1, 2**8, 2**16]:
-        x = np.random.normal(size=size) + 1j * np.random.normal(size=size)
-        npt.assert_allclose(np.asarray(pocketfft.ifft(pocketfft.fft(x))), x)
+@pytest.mark.parametrize("size", sizes)
+def test_unitary(size):
+    x = np.random.normal(size=size) + 1j * np.random.normal(size=size)
+    npt.assert_allclose(np.asarray(pocketfft.ifft(pocketfft.fft(x))), x)
+
+
+@pytest.mark.parametrize("size", sizes)
+def test_pocket_fft_2d(benchmark, size):
+    x = np.random.normal(size=(size, 16)) + 1j * np.random.normal(size=(size, 16))
+    out = np.empty(x.shape, dtype=complex)
+    benchmark(lambda: pocketfft.fft(x, out=out, nthreads=2))
+    npt.assert_allclose(out, np.fft.fft(x, axis=0))
+
+
+@pytest.mark.parametrize("size", sizes)
+def test_numpy_fft_2d(benchmark, size):
+    x = np.random.normal(size=(size, 16)) + 1j * np.random.normal(size=(size, 16))
+    benchmark(lambda: np.fft.fft(x, axis=0))
