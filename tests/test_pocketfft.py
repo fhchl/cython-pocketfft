@@ -5,7 +5,7 @@ import pytest
 
 sizes = [2**4, 2**8, 2**12, 2**16]
 
-
+@pytest.mark.benchmark(group="1D")
 @pytest.mark.parametrize("size", sizes)
 def test_pocket_fft(benchmark, size):
     x = np.random.normal(size=size) + 1j * np.random.normal(size=size)
@@ -13,6 +13,7 @@ def test_pocket_fft(benchmark, size):
     npt.assert_allclose(np.asarray(result), np.fft.fft(x))
 
 
+@pytest.mark.benchmark(group="1D")
 @pytest.mark.parametrize("size", sizes)
 def test_numpy_fft(benchmark, size):
     x = np.random.normal(size=size) + 1j * np.random.normal(size=size)
@@ -31,15 +32,33 @@ def test_unitary(size):
     npt.assert_allclose(np.asarray(pocketfft.ifft(pocketfft.fft(x))), x)
 
 
+@pytest.mark.benchmark(group="2D")
 @pytest.mark.parametrize("size", sizes)
 def test_pocket_fft_2d(benchmark, size):
     x = np.random.normal(size=(size, 16)) + 1j * np.random.normal(size=(size, 16))
     out = np.empty(x.shape, dtype=complex)
-    benchmark(lambda: pocketfft.fft(x, out=out, nthreads=2))
+    benchmark(lambda: pocketfft.fft(x, out=out, nthreads=4))
     npt.assert_allclose(out, np.fft.fft(x, axis=0))
 
 
+@pytest.mark.benchmark(group="2D")
 @pytest.mark.parametrize("size", sizes)
 def test_numpy_fft_2d(benchmark, size):
     x = np.random.normal(size=(size, 16)) + 1j * np.random.normal(size=(size, 16))
+    benchmark(lambda: np.fft.fft(x, axis=0))
+
+
+@pytest.mark.benchmark(group="3D")
+@pytest.mark.parametrize("size", sizes)
+def test_pocket_fft_3d(benchmark, size):
+    x = np.random.normal(size=(size, 16, 16)) + 1j * np.random.normal(size=(size, 16, 16))
+    out = np.empty(x.shape, dtype=complex)
+    benchmark(lambda: pocketfft.fft(x, out=out, nthreads=4))
+    npt.assert_allclose(out, np.fft.fft(x, axis=0))
+
+
+@pytest.mark.benchmark(group="3D")
+@pytest.mark.parametrize("size", sizes)
+def test_numpy_fft_3d(benchmark, size):
+    x = np.random.normal(size=(size, 16, 16)) + 1j * np.random.normal(size=(size, 16, 16))
     benchmark(lambda: np.fft.fft(x, axis=0))

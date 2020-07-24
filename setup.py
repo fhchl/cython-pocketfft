@@ -17,4 +17,14 @@ setup(
     ext_modules=cythonize(
         extentions, include_path=[numpy.get_include()], annotate=True
     ),
+    install_requires=[
+        'numpy',
+        'cython'
+    ],
+    extras_require={
+        'dev': [
+            'pytest',
+            'pytest-benchmark',
+        ]
+    }
 )

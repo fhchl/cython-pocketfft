@@ -1,7 +1,9 @@
 all:
 	python setup.py build_ext
+	pip install -e .[dev]
 
 clean:
+	pip uninstall pocketfft
 	rm -rf .benchmarks
 	rm -rf .pytest_cache
 	rm -rf build
@@ -10,6 +12,3 @@ clean:
 
 test:
 	pytest
-
-install:
-	pip install -e .
