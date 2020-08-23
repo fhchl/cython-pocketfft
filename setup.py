@@ -6,7 +6,7 @@ import numpy
 extentions = [
     Extension(
         "pocketfft",
-        sources=["src/pocketfft.pyx"],
+        sources=["pocketfft/*.pyx"],
         include_dirs=["include/pocketfft"],
         extra_compile_args=[],
     )
@@ -14,9 +14,13 @@ extentions = [
 
 setup(
     name="pocketfft",
+    packages=['pocketfft'],
     ext_modules=cythonize(
         extentions, include_path=[numpy.get_include()], annotate=True
     ),
+    # needed for cimporting from other  modules
+    package_data={'pocketfft': ['*.pxd']},
+    zip_safe=False,
     install_requires=[
         'numpy',
         'cython'
@@ -26,5 +30,5 @@ setup(
             'pytest',
             'pytest-benchmark',
         ]
-    }
+    },
 )
