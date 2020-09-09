@@ -2,10 +2,10 @@
 # cython: language_level = 3
 
 from cython.operator cimport dereference as deref
+cimport numpy as np
 import numpy as np
 
 cimport cython
-
 
 cdef extern from "pocketfft_hdronly.h" namespace "pocketfft":
     void c2c(const shape_t &shape, const stride_t &stride_in,
@@ -21,25 +21,6 @@ cdef extern from "pocketfft_hdronly.h" namespace "pocketfft":
         const stride_t &stride_out, size_t axis, bint forward,
         const complex *data_in, double *data_out, double fct, size_t nthreads)
 
-# TODO: Check github issue
-
-# ctypedef fused ndcomplexview_t:
-#     complex[::1]
-#     complex[:, ::1]
-#     complex[:, :, ::1]
-
-def actual_cinit(FFT self, ndcomplexview_t arr):
-    if ndcomplexview_t is complex[::1]:
-        self.data = &arr[0]
-    elif ndcomplexview_t is complex[:, ::1]:
-        self.data = &arr[0, 0]
-    elif ndcomplexview_t is complex[:, :, ::1]:
-        self.data = &arr[0, 0, 0]
-
-cdef class FFT:
-    cdef complex *data
-    def __cinit__(self, arr):
-        actual_cinit(self, arr)
 
 # cdef class FFT():
 #     cdef:
@@ -115,6 +96,105 @@ cdef class FFT:
 #             self.fct,
 #             nthreads
 #         )
+
+
+def __complexFFT_actual_cinit(ComplexFFT self, ndcomplexview_t arr_in, ndcomplexview_t arr_out):
+    """Workaround for Cython issue with templated argunments in __cinit__."""
+
+    if ndcomplexview_t is complex[::1]:
+        self.ndim = 1
+        self.data_in = &arr_in[0]
+        self.data_out = &arr_out[0]
+    elif ndcomplexview_t is complex[:, ::1]:
+        self.ndim = 2
+        self.data_in = &arr_in[0, 0]
+        self.data_out = &arr_out[0, 0]
+    elif ndcomplexview_t is complex[:, :, ::1]:
+        self.ndim = 3
+        self.data_in = &arr_in[0, 0, 0]
+        self.data_out = &arr_out[0, 0, 0]
+
+    # initialize std::vectors
+    self.shape = new shape_t()
+    self.axes = new shape_t()
+    self.stride_in = new stride_t()
+    self.stride_out = new stride_t()
+
+    for i in range(self.ndim):
+        self.shape.push_back(arr_in.shape[i])
+        self.stride_in.push_back(arr_in.strides[i])
+        self.stride_out.push_back(arr_out.strides[i])
+
+    self.axes.push_back(self.axis)
+
+    self.fct_forward = 1.
+    self.fct_backward = 1. / arr_in.shape[self.axis]
+
+
+cdef class ComplexFFT:
+    cdef:
+        shape_t *shape
+        shape_t *axes
+        stride_t *stride_in
+        stride_t *stride_out
+        complex *data_in
+        complex *data_out
+        double fct_forward
+        double fct_backward
+        bint forward
+        size_t ndim
+        size_t axis
+        size_t nsamp
+        int nthreads
+
+    def __cinit__(self, arr_in, arr_out, nthreads=1, axis=-1):
+        self.nthreads = nthreads
+
+        # check shapes
+        if arr_in.shape != arr_out.shape:
+            raise ValueError(f'arrays must have same shape but have shapes {arr_in.shape, arr_out.shape}')
+        self.ndim = arr_in.ndim
+
+        if arr_in.shape[axis] == 0:
+            raise ValueError('len(x) must be larger 0')
+
+        self.axis = self.ndim + axis if axis < 0 else axis
+
+        if not (arr_in.dtype == arr_out.dtype == np.complex):
+            raise ValueError('arrays must have complex dtype')
+
+        __complexFFT_actual_cinit(self, arr_in, arr_out)
+
+    def __dealloc__(ComplexFFT self):
+        del self.shape, self.stride_in, self.stride_out, self.axes
+
+    def forward(ComplexFFT self):
+        cdef bint forward = True
+        c2c(
+            deref(self.shape),
+            deref(self.stride_in),
+            deref(self.stride_out),
+            deref(self.axes),
+            forward,
+            self.data_in,
+            self.data_out,
+            self.fct_forward,
+            self.nthreads
+        )
+
+    def backward(ComplexFFT self):
+        cdef bint forward = False
+        c2c(
+            deref(self.shape),
+            deref(self.stride_in),
+            deref(self.stride_out),
+            deref(self.axes),
+            forward,
+            self.data_in,
+            self.data_out,
+            self.fct_backward,
+            self.nthreads
+        )
 
 
 @cython.cdivision(True)

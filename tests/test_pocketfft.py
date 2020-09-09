@@ -3,7 +3,8 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-sizes = [2**4, 2**8, 2**12, 2**16]
+sizes = [2 ** 4, 2 ** 8, 2 ** 12, 2 ** 16]
+
 
 @pytest.mark.benchmark(group="1D")
 @pytest.mark.parametrize("size", sizes)
@@ -37,7 +38,7 @@ def test_unitary(size):
 def test_pocket_fft_2d(benchmark, size):
     x = np.random.normal(size=(size, 16)) + 1j * np.random.normal(size=(size, 16))
     out = np.empty(x.shape, dtype=complex)
-    benchmark(lambda: pocketfft.fft(x, out=out, nthreads=4))
+    benchmark(lambda: pocketfft.fft(x, out=out, nthreads=1))
     npt.assert_allclose(out, np.fft.fft(x, axis=0))
 
 
@@ -51,14 +52,66 @@ def test_numpy_fft_2d(benchmark, size):
 @pytest.mark.benchmark(group="3D")
 @pytest.mark.parametrize("size", sizes)
 def test_pocket_fft_3d(benchmark, size):
-    x = np.random.normal(size=(size, 16, 16)) + 1j * np.random.normal(size=(size, 16, 16))
+    x = np.random.normal(size=(size, 16, 16)) + 1j * np.random.normal(
+        size=(size, 16, 16)
+    )
     out = np.empty(x.shape, dtype=complex)
-    benchmark(lambda: pocketfft.fft(x, out=out, nthreads=4))
+    benchmark(lambda: pocketfft.fft(x, out=out, nthreads=1))
     npt.assert_allclose(out, np.fft.fft(x, axis=0))
 
 
 @pytest.mark.benchmark(group="3D")
 @pytest.mark.parametrize("size", sizes)
 def test_numpy_fft_3d(benchmark, size):
-    x = np.random.normal(size=(size, 16, 16)) + 1j * np.random.normal(size=(size, 16, 16))
+    x = np.random.normal(size=(size, 16, 16)) + 1j * np.random.normal(
+        size=(size, 16, 16)
+    )
     benchmark(lambda: np.fft.fft(x, axis=0))
+
+
+@pytest.mark.benchmark(group="1D")
+@pytest.mark.parametrize("size", sizes)
+def test_ComplexFFT_1d(benchmark, size):
+    arr_in = np.random.normal(size=(size)) + 1j * np.random.normal(size=(size))
+    arr_out = np.zeros(arr_in.shape, dtype=complex)
+
+    fft = pocketfft.ComplexFFT(arr_in, arr_out)
+
+    benchmark(fft.forward)
+    npt.assert_allclose(np.fft.fft(arr_in), arr_out)
+
+    fft.backward()
+    npt.assert_allclose(np.fft.ifft(arr_in), arr_out)
+
+
+@pytest.mark.benchmark(group="2D")
+@pytest.mark.parametrize("size", sizes)
+def test_ComplexFFT_2d(benchmark, size):
+    arr_in = np.random.normal(size=(size, 16)) + 1j * np.random.normal(size=(size, 16))
+    arr_out = np.zeros(arr_in.shape, dtype=complex)
+
+    fft = pocketfft.ComplexFFT(arr_in, arr_out)
+
+    benchmark(fft.forward)
+    npt.assert_allclose(np.fft.fft(arr_in), arr_out)
+
+    fft.backward()
+    npt.assert_allclose(np.fft.ifft(arr_in), arr_out)
+
+
+@pytest.mark.benchmark(group="3D")
+@pytest.mark.parametrize("size", sizes)
+def test_ComplexFFT_3d(benchmark, size):
+    arr_in = np.random.normal(size=(size, 16, 16)) + 1j * np.random.normal(
+        size=(size, 16, 16)
+    )
+    arr_out = np.zeros(arr_in.shape, dtype=complex)
+
+    fft = pocketfft.ComplexFFT(arr_in, arr_out)
+
+    benchmark(fft.forward)
+    npt.assert_allclose(np.fft.fft(arr_in), arr_out)
+
+    fft.backward()
+    npt.assert_allclose(np.fft.ifft(arr_in), arr_out)
+

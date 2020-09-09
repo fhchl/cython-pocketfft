@@ -1,6 +1,6 @@
 all:
 	#python setup.py build_ext
-	pip install --verbose .[dev]
+	pip install .[dev]
 
 clean:
 	pip uninstall -y pocketfft

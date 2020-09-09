@@ -4,3 +4,4 @@ src/pocketfft.html
 build
 *.egg-info
 *.so
+.vscode

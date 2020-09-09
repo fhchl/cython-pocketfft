@@ -7,7 +7,7 @@ extentions = [
     Extension(
         "pocketfft",
         sources=["pocketfft/*.pyx"],
-        include_dirs=["include/pocketfft"],
+        include_dirs=["include/pocketfft", numpy.get_include()],
         extra_compile_args=[],
     )
 ]
