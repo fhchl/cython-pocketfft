@@ -7,6 +7,7 @@ import numpy as np
 
 cimport cython
 
+
 cdef extern from "pocketfft_hdronly.h" namespace "pocketfft":
     void c2c(const shape_t &shape, const stride_t &stride_in,
         const stride_t &stride_out, const shape_t &axes, bint forward,
@@ -20,82 +21,6 @@ cdef extern from "pocketfft_hdronly.h" namespace "pocketfft":
     void c2r(const shape_t &shape_out, const stride_t &stride_in,
         const stride_t &stride_out, size_t axis, bint forward,
         const complex *data_in, double *data_out, double fct, size_t nthreads)
-
-
-# cdef class FFT():
-#     cdef:
-#         shape_t *shape_ptr
-#         stride_t *stride_in_ptr
-#         stride_t *stride_out_ptr
-#         shape_t *axes_ptr
-#         complex *data_in_ptr
-#         complex *data_out_ptr
-#         double fct
-#         bint forward
-
-#     def __cinit__(self, ndcomplexview_t arr_in, size_t axis, bint forward, ndcomplexview_t arr_out):
-
-#         if arr_in is None or arr_out is None:
-#             raise ValueError('arr_in and arr_out must not be None')
-#         if arr_in.shape[axis] == 0:
-#             raise ValueError('arr_in.shape[axis] must be larger 0')
-
-#         cdef size_t i
-#         for i in range(8):
-#             if arr_out.shape[i] != arr_in.shape[i]:
-#                 raise ValueError(f'arr_out and arr_in must have same shape, but have shapes {arr_out.shape} and {arr_in.shape}')
-
-#         self.shape_ptr = new shape_t()
-#         self.axes_ptr = new shape_t()
-#         self.stride_in_ptr = new stride_t()
-#         self.stride_out_ptr = new stride_t()
-
-#         cdef size_t ndim
-#         if ndcomplexview_t is complex[::1]:
-#             ndim = 1
-#             self.data_in_ptr = &arr_in[0]
-#             self.data_out_ptr = &arr_out[0]
-#         elif ndcomplexview_t is complex[:, ::1]:
-#             ndim = 2
-#             self.data_in_ptr = &arr_in[0, 0]
-#             self.data_out_ptr = &arr_out[0, 0]
-#         elif ndcomplexview_t is complex[:, :, ::1]:
-#             ndim = 3
-#             self.data_in_ptr = &arr_in[0, 0, 0]
-#             self.data_out_ptr = &arr_out[0, 0, 0]
-
-#         if axis >= ndim:
-#             raise ValueError(f'axis ({axis}) must not be larger or equal arr_in.ndim ({ndim})')
-
-#         # initialize std::vectors
-#         for i in range(ndim):
-#             self.shape_ptr.push_back(arr_in.shape[i])
-#             self.stride_in_ptr.push_back(arr_in.strides[i])
-#             self.stride_out_ptr.push_back(arr_out.strides[i])
-
-#         self.axes_ptr.push_back(axis)
-#         self.forward = forward
-
-#         if forward:
-#             fct = 1.
-#         else:
-#             fct = 1. / arr_in.shape[axis]
-
-#     def __dealloc__(self):
-#         del self.shape_ptr, self.stride_in_ptr, self.stride_out_ptr, self.axes_ptr
-
-#     cdef run(FFT self, size_t nthreads=1):
-#         c2c(
-#             deref(self.shape_ptr),
-#             deref(self.stride_in_ptr),
-#             deref(self.stride_out_ptr),
-#             deref(self.axes_ptr),
-#             self.forward,
-#             self.data_in_ptr,
-#             self.data_out_ptr,
-#             self.fct,
-#             nthreads
-#         )
 
 
 def __complexFFT_actual_cinit(ComplexFFT self, ndcomplexview_t arr_in, ndcomplexview_t arr_out):
@@ -141,7 +66,6 @@ cdef class ComplexFFT:
         complex *data_out
         double fct_forward
         double fct_backward
-        bint forward
         size_t ndim
         size_t axis
         size_t nsamp
@@ -168,30 +92,134 @@ cdef class ComplexFFT:
     def __dealloc__(ComplexFFT self):
         del self.shape, self.stride_in, self.stride_out, self.axes
 
-    def forward(ComplexFFT self):
-        cdef bint forward = True
+    cpdef void forward(ComplexFFT self):
         c2c(
             deref(self.shape),
             deref(self.stride_in),
             deref(self.stride_out),
             deref(self.axes),
-            forward,
+            True,
             self.data_in,
             self.data_out,
             self.fct_forward,
             self.nthreads
         )
 
-    def backward(ComplexFFT self):
-        cdef bint forward = False
+    cpdef void backward(ComplexFFT self):
         c2c(
             deref(self.shape),
             deref(self.stride_in),
             deref(self.stride_out),
             deref(self.axes),
-            forward,
+            False,
             self.data_in,
             self.data_out,
+            self.fct_backward,
+            self.nthreads
+        )
+
+
+def __realFFT_actual_cinit(realFFT self, nddoubleview_t arr_in, ndcomplexview_t arr_out):
+    """Workaround for Cython issue with templated argunments in __cinit__."""
+
+    if nddoubleview_t is double[::1]:
+        self.ndim = 1
+        self.data_in = &arr_in[0]
+    elif nddoubleview_t is double[:, ::1]:
+        self.ndim = 2
+        self.data_in = &arr_in[0, 0]
+    elif nddoubleview_t is double[:, :, ::1]:
+        self.ndim = 3
+        self.data_in = &arr_in[0, 0, 0]
+
+    if ndcomplexview_t is complex[::1]:
+        self.data_out = &arr_out[0]
+    elif ndcomplexview_t is complex[:, ::1]:
+        self.data_out = &arr_out[0, 0]
+    elif ndcomplexview_t is complex[:, :, ::1]:
+        self.data_out = &arr_out[0, 0, 0]
+
+    # initialize std::vectors
+    self.shape_in = new shape_t()
+    self.stride_in = new stride_t()
+    self.stride_out = new stride_t()
+
+    for i in range(self.ndim):
+        self.shape_in.push_back(arr_in.shape[i])
+        self.stride_in.push_back(arr_in.strides[i])
+        self.stride_out.push_back(arr_out.strides[i])
+
+    self.fct_forward = 1.
+    self.fct_backward = 1. / arr_in.shape[self.axis]
+
+
+cdef class realFFT:
+    cdef:
+        shape_t *shape_in
+        stride_t *stride_in
+        stride_t *stride_out
+        double *data_in
+        complex *data_out
+        double fct_forward
+        double fct_backward
+        size_t ndim
+        size_t axis
+        size_t nsamp
+        int nthreads
+
+    def __cinit__(self, arr_in, arr_out, nthreads=1, axis=-1):
+        self.nthreads = nthreads
+
+        # check shapes
+        if arr_in.ndim != arr_out.ndim:
+            raise ValueError(f'arrays must have same number of dimensions but have shapes {arr_in.shape, arr_out.shape}')
+        self.ndim = arr_in.ndim
+
+        if not (- arr_in.ndim <= axis < self.ndim):
+            raise ValueError('axis invalid')
+        self.axis = self.ndim + axis if axis < 0 else axis
+
+        for i in range(self.ndim):
+            if i == self.axis:
+                if arr_out.shape[i] != arr_in.shape[i]//2 + 1:
+                    raise ValueError(f'incompatible shapes {arr_in.shape, arr_out.shape} at dim {i}')
+            else:
+                if arr_out.shape[i] != arr_in.shape[i]:
+                    raise ValueError(f'incompatible shapes {arr_in.shape, arr_out.shape} at dim {i}')
+
+        if arr_in.shape[axis] == 0:
+            raise ValueError('dimensions must not be 0')
+
+        if not (arr_in.dtype == float and arr_out.dtype == complex):
+            raise ValueError('arrays must have dtype double and complex but have {arr_in.dtype, arr_out.dtype}')
+
+        __realFFT_actual_cinit(self, arr_in, arr_out)
+
+    def __dealloc__(realFFT self):
+        del self.shape_in, self.stride_in, self.stride_out
+
+    cpdef void forward(realFFT self):
+        r2c(
+            deref(self.shape_in),
+            deref(self.stride_in),
+            deref(self.stride_out),
+            self.axis,
+            True,
+            self.data_in,
+            self.data_out,
+            self.fct_forward,
+            self.nthreads
+        )
+
+    cpdef void backward(realFFT self):
+        c2r(
+            deref(self.shape_in),
+            deref(self.stride_out),
+            deref(self.stride_in),
+            self.axis,
+            False,
+            self.data_out,
+            self.data_in,
             self.fct_backward,
             self.nthreads
         )
