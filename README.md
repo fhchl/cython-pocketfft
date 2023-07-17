@@ -1,3 +1,3 @@
 PocketFFT for Cython
 
-Some experiments for wrapping for Cython. Use at own risk.
+Some experiments wrapping PocketFFT for use with Cython. Use at own risk.
